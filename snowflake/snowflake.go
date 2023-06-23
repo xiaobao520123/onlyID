@@ -17,11 +17,11 @@ var (
 	// Epoch is starting timestamp of generated ids
 	// and it is set to the twitter snowflake epoch of
 	// Nov 04 2010 01:42:54 UTC in milliseconds
-	Epoch int64 = 1288834974657
+	Epoch     int64 = 1288834974657
+	EpochUnix       = time.Unix(Epoch/1000, (Epoch%1000)*1000*1000)
 
 	NodeIDBits uint8 = 10
-
-	SeqIDBits uint8 = 12
+	SeqIDBits  uint8 = 12
 
 	seqIDMask      int64 = -1 ^ (-1 << SeqIDBits)
 	nodeIDShift          = SeqIDBits
@@ -39,6 +39,7 @@ type Host struct {
 	seqID     int64
 }
 
+// NewHost can create a new instance of id generator
 func NewHost(nodeID int64) (*Host, error) {
 	if NodeIDBits+SeqIDBits > 22 {
 		return nil, fmt.Errorf("NodeIDBits and SeqIDBits overflow")
@@ -52,7 +53,8 @@ func NewHost(nodeID int64) (*Host, error) {
 
 	currTime := time.Now()
 	// rollback the time to Epoch to get a monotoic id generation
-	host.epoch = currTime.Add(time.Unix(Epoch/1000, (Epoch%1000)*1000*1000).Sub(currTime))
+	// Reference from github.com/bwmarrin/snowflake
+	host.epoch = currTime.Add(EpochUnix.Sub(currTime))
 
 	host.timestamp = 0
 	host.nodeID = nodeID
@@ -62,12 +64,12 @@ func NewHost(nodeID int64) (*Host, error) {
 
 type ID int64
 
+// Generate can generate a new ID
 func (h *Host) Generate() ID {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	now := time.Since(h.epoch).Milliseconds()
-
 	if now == h.timestamp {
 		h.seqID = (h.seqID + 1) & seqIDMask
 
@@ -75,14 +77,14 @@ func (h *Host) Generate() ID {
 			for now <= h.timestamp {
 				now = time.Since(h.epoch).Milliseconds()
 			}
+			h.timestamp = now
 		}
 	} else {
+		h.timestamp = now
 		h.seqID = 0
 	}
 
-	h.timestamp = now
-
-	r := ID((now)<<timestampShift |
+	r := ID((now)<<int64(timestampShift) |
 		(h.nodeID << int64(nodeIDShift)) |
 		(h.seqID),
 	)
