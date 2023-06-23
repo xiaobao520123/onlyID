@@ -34,6 +34,11 @@ func main() {
 }
 
 func HttpGenID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	buffer := bytes.NewBuffer(nil)
 	id := theHost.Generate()
 	buffer.WriteString(id.ToString())
