@@ -27,7 +27,7 @@ var (
 	nodeIDShift          = SeqIDBits
 	maxNodeID      int64 = -1 ^ (-1 << NodeIDBits)
 	nodeIDMask           = maxNodeID << nodeIDShift
-	timestampShift       = nodeIDShift + SeqIDBits
+	timestampShift       = NodeIDBits + SeqIDBits
 )
 
 type Host struct {
@@ -67,28 +67,27 @@ func (h *Host) Generate() ID {
 	defer h.mu.Unlock()
 
 	now := time.Since(h.epoch).Milliseconds()
+
 	if now == h.timestamp {
-		// timestamp collision, increase seq id
 		h.seqID = (h.seqID + 1) & seqIDMask
 
-		// overlapped seq id, wait until next timestamp
 		if h.seqID == 0 {
 			for now <= h.timestamp {
 				now = time.Since(h.epoch).Milliseconds()
 			}
 		}
-
 	} else {
 		h.seqID = 0
 	}
 
 	h.timestamp = now
 
-	id := ID(((h.timestamp) << timestampShift) |
-		((h.nodeID) << nodeIDShift) |
-		h.seqID)
+	r := ID((now)<<timestampShift |
+		(h.nodeID << int64(nodeIDShift)) |
+		(h.seqID),
+	)
 
-	return id
+	return r
 }
 
 func (id ID) ToInt64() int64 {
