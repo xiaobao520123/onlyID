@@ -42,6 +42,10 @@ func HttpGenID(w http.ResponseWriter, r *http.Request) {
 	buffer := bytes.NewBuffer(nil)
 	id := theHost.Generate()
 	buffer.WriteString(id.ToString())
+	buffer.WriteRune('\n')
+	buffer.WriteString(
+		fmt.Sprintf("%v | %v | %v",
+			id.Timestamp(), id.NodeID(), id.SeqID()))
 	log.Printf("generate new id: %v", id.ToString())
 	w.Write(buffer.Bytes())
 }
