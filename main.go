@@ -1,27 +1,42 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"sync"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/xiaobao520123/onlyID/snowflake"
+)
+
+const (
+	EnvNodeId = "NODE_ID"
+	Port      = 80
+)
+
+var (
+	theHost *snowflake.Host
 )
 
 func main() {
-	h, err := NewHost(1)
+	nodeIDStr := os.Getenv(EnvNodeId)
+	nodeID, _ := strconv.ParseInt(nodeIDStr, 10, 32)
+	var err error = nil
+	theHost, err = snowflake.NewHost(nodeID)
 	if err != nil {
-		fmt.Printf("create host failed, err: %v\n", err)
-		return
+		panic(err)
 	}
-	wg := sync.WaitGroup{}
-	ids := make([]ID, 0)
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			ids = append(ids, h.Generate())
-		}()
-	}
-	for i, id := range ids {
-		fmt.Printf("id[%v]: %v\n", i, id.ToString())
-		fmt.Printf("%d | %d | %d\n", id.Timestamp(), id.NodeID(), id.SeqID())
+	log.Printf("New host as node id: %v", nodeID)
+	http.HandleFunc("/GenID", HttpGenID)
+	http.ListenAndServe(fmt.Sprintf(":%v", Port), nil)
+}
 
-	}
+func HttpGenID(w http.ResponseWriter, r *http.Request) {
+	buffer := bytes.NewBuffer(nil)
+	id := theHost.Generate()
+	buffer.WriteString(id.ToString())
+	log.Printf("generate new id: %v", id.ToString())
+	w.Write(buffer.Bytes())
 }
